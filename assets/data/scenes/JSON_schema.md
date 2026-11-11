@@ -25,29 +25,7 @@
         "sceneId": "jidelna"
       }
     ]
-  },
-  "jidelna": {
-    "title": "Školní jídelna",
-    "floor": 0,
-    "panorama": "assets/photos/jidelna.jpg",
-    "mapCoords": {
-      "x": 40.0,
-      "y": 80.0
-    },
-    "neighbors": [
-      "chodba_vstup"
-    ],
-    "hotSpots": [
-      {
-        "pitch": 0.0,
-        "yaw": 180.0,
-        "type": "scene",
-        "text": "Zpět k hlavnímu vchodu",
-        "sceneId": "chodba_vstup"
-      }
-    ]
-  }
-}
+  },}
 ```
 
 ---
