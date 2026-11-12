@@ -1,0 +1,34 @@
+{
+  "vchod": {
+    "title": "Test 1 – Hlavní vchod",
+    "floor": 0,
+    "panorama": "https://pannellum.org/images/alma.jpg",
+    "mapCoords": { "x": 20, "y": 50 },
+    "neighbors": ["chodba"],
+    "hotSpots": [
+      {
+        "pitch": 0,
+        "yaw": 0,
+        "type": "scene",
+        "text": "Přejít na chodbu",
+        "sceneId": "chodba"
+      }
+    ]
+  },
+  "chodba": {
+    "title": "Test 2 – Hlavní chodba",
+    "floor": 0,
+    "panorama": "https://pannellum.org/images/bma-1.jpg",
+    "mapCoords": { "x": 60, "y": 50 },
+    "neighbors": ["vchod"],
+    "hotSpots": [
+      {
+        "pitch": 0,
+        "yaw": 0,
+        "type": "scene",
+        "text": "Zpět ke vchodu",
+        "sceneId": "vchod"
+      }
+    ]
+  }
+}
