@@ -1,0 +1,218 @@
+import { getRouteSummary } from '../core/bfs.js';
+
+/**
+ * Ovládání bloku Navigace: vyhledávání Odkud/Kam, prohození cílů, sdílení trasy a mobilní panely.
+ */
+export function createNavigation({ scenes, initialSceneId, onRequestRoute, onClearRoute, getShareUrl }) {
+  const inputStart = document.getElementById('inputStart');
+  const inputTarget = document.getElementById('inputTarget');
+  const listStart = document.getElementById('listStart');
+  const listTarget = document.getElementById('listTarget');
+  const btnSwap = document.getElementById('btnSwapRoute');
+  const btnClear = document.getElementById('btnClearRoute');
+  const btnShare = document.getElementById('btnShareRoute');
+  const routeResultEl = document.getElementById('routeResult');
+  const routeStatsEl = document.getElementById('routeStats');
+  const routeNextEl = document.getElementById('routeNextStep');
+
+  // Mobilní ovládání
+  const mapPanel = document.getElementById('mapPanel');
+  const navPanel = document.getElementById('navPanel');
+  const btnMobileMap = document.getElementById('btnMobileMap');
+  const btnMobileNav = document.getElementById('btnMobileNav');
+
+  let selectedStartId = initialSceneId;
+  let selectedTargetId = null;
+
+  const sceneEntries = Object.entries(scenes).map(([id, data]) => ({
+    id,
+    title: data.title || id,
+    floor: data.floor ?? 0
+  }));
+
+  function formatFloor(floor) {
+    if (floor === 0) return 'Přízemí';
+    if (floor < 0) return `${floor}. PP`;
+    return `${floor}. p.`;
+  }
+
+  function normalizeText(str) {
+    return str
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+  }
+
+  function setupAutocomplete(inputEl, listEl, onPick) {
+    function renderSuggestions(query) {
+      const q = normalizeText(query.trim());
+      const matches = sceneEntries.filter(
+        (item) => !q || normalizeText(item.title).includes(q) || normalizeText(item.id).includes(q)
+      );
+
+      listEl.innerHTML = '';
+      if (matches.length === 0) {
+        listEl.classList.add('hidden');
+        return;
+      }
+
+      for (const item of matches) {
+        const li = document.createElement('li');
+        li.innerHTML = `<span>${item.title}</span><small>${formatFloor(item.floor)}</small>`;
+        li.addEventListener('mousedown', (e) => {
+          // mousedown se provede před blur událostí na inputu
+          e.preventDefault();
+          inputEl.value = item.title;
+          listEl.classList.add('hidden');
+          onPick(item.id);
+        });
+        listEl.appendChild(li);
+      }
+
+      listEl.classList.remove('hidden');
+    }
+
+    inputEl.addEventListener('focus', () => renderSuggestions(inputEl.value));
+    inputEl.addEventListener('input', () => renderSuggestions(inputEl.value));
+    inputEl.addEventListener('blur', () => {
+      setTimeout(() => listEl.classList.add('hidden'), 150);
+    });
+  }
+
+  function triggerRouteIfReady() {
+    if (selectedStartId && selectedTargetId && typeof onRequestRoute === 'function') {
+      onRequestRoute(selectedStartId, selectedTargetId);
+    }
+  }
+
+  setupAutocomplete(inputStart, listStart, (id) => {
+    selectedStartId = id;
+    triggerRouteIfReady();
+  });
+
+  setupAutocomplete(inputTarget, listTarget, (id) => {
+    selectedTargetId = id;
+    triggerRouteIfReady();
+  });
+
+  // Předvyplnění výchozí pozice
+  if (inputStart && scenes[initialSceneId]) {
+    inputStart.value = scenes[initialSceneId].title || initialSceneId;
+  }
+
+  // Prohození Start <-> Cíl
+  if (btnSwap) {
+    btnSwap.addEventListener('click', () => {
+      const tempId = selectedStartId;
+      selectedStartId = selectedTargetId;
+      selectedTargetId = tempId;
+
+      inputStart.value = selectedStartId ? (scenes[selectedStartId]?.title || selectedStartId) : '';
+      inputTarget.value = selectedTargetId ? (scenes[selectedTargetId]?.title || selectedTargetId) : '';
+
+      triggerRouteIfReady();
+    });
+  }
+
+  // Zrušení aktivní trasy
+  if (btnClear) {
+    btnClear.addEventListener('click', () => {
+      selectedTargetId = null;
+      inputTarget.value = '';
+      routeResultEl?.classList.add('hidden');
+      btnClear.classList.add('hidden');
+
+      if (typeof onClearRoute === 'function') {
+        onClearRoute();
+      }
+    });
+  }
+
+  // Kopírování odkazu na trasu do schránky
+  if (btnShare) {
+    btnShare.addEventListener('click', async () => {
+      const url = typeof getShareUrl === 'function' ? getShareUrl() : window.location.href;
+      try {
+        await navigator.clipboard.writeText(url);
+        const originalText = btnShare.textContent;
+        btnShare.textContent = 'Odkaz zkopírován!';
+        setTimeout(() => {
+          btnShare.textContent = originalText;
+        }, 2000);
+      } catch {
+        window.prompt('Zkopírujte odkaz na trasu:', url);
+      }
+    });
+  }
+
+  // Ovládání mobilních panelů (<= 768px)
+  function toggleMobileDrawer(target) {
+    const isMap = target === 'map';
+    const openMap = isMap && !mapPanel.classList.contains('mobile-open');
+    const openNav = !isMap && !navPanel.classList.contains('mobile-open');
+
+    mapPanel.classList.toggle('mobile-open', openMap);
+    navPanel.classList.toggle('mobile-open', openNav);
+    btnMobileMap?.classList.toggle('active', openMap);
+    btnMobileNav?.classList.toggle('active', openNav);
+  }
+
+  btnMobileMap?.addEventListener('click', () => toggleMobileDrawer('map'));
+  btnMobileNav?.addEventListener('click', () => toggleMobileDrawer('nav'));
+
+  /**
+   * Aktualizuje formulář a panel výsledku po výpočtu trasy nebo při otevření sdíleného odkazu.
+   */
+  function displayRoute(startId, targetId, path) {
+    selectedStartId = startId;
+    selectedTargetId = targetId;
+
+    if (inputStart) inputStart.value = scenes[startId]?.title || startId;
+    if (inputTarget) inputTarget.value = scenes[targetId]?.title || targetId;
+
+    if (!path || path.length === 0) {
+      routeResultEl?.classList.remove('hidden');
+      btnClear?.classList.remove('hidden');
+      if (routeStatsEl) routeStatsEl.textContent = 'Cesta mezi těmito místy nebyla nalezena.';
+      if (routeNextEl) routeNextEl.textContent = '';
+      return;
+    }
+
+    const summary = getRouteSummary(scenes, path);
+    routeResultEl?.classList.remove('hidden');
+    btnClear?.classList.remove('hidden');
+
+    if (routeStatsEl && summary) {
+      const stepWord = summary.steps === 1 ? 'krok' : summary.steps < 5 ? 'kroky' : 'kroků';
+      const floorInfo =
+        summary.floorChanges > 0
+          ? `${formatFloor(summary.startFloor)} → ${formatFloor(summary.endFloor)}`
+          : `Stejné patro (${formatFloor(summary.startFloor)})`;
+      routeStatsEl.textContent = `${summary.steps} ${stepWord} • ${floorInfo}`;
+    }
+
+    if (routeNextEl) {
+      if (path.length === 1) {
+        routeNextEl.textContent = 'Jste přímo v cílové místnosti.';
+      } else {
+        const nextTitle = scenes[path[1]]?.title || path[1];
+        routeNextEl.textContent = `První krok: ${nextTitle}`;
+      }
+    }
+  }
+
+  /**
+   * Pokud uživatel nemá aktivní trasu, automaticky aktualizuje pole "Odkud" podle místnosti, kam došel.
+   */
+  function syncCurrentLocation(sceneId) {
+    if (!selectedTargetId && scenes[sceneId]) {
+      selectedStartId = sceneId;
+      if (inputStart) inputStart.value = scenes[sceneId].title || sceneId;
+    }
+  }
+
+  return {
+    displayRoute,
+    syncCurrentLocation
+  };
+}
