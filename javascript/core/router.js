@@ -71,7 +71,7 @@ export function createRouter({ scenes, defaultSceneId, onRouteChange }) {
   }
 
 
-   // funkce Zpět/Vpřed v prohlížeči + <a href="#jidelna">.
+   // funkce Zpět/Vpřed v prohlížeči + FUNKČNÍ odkazování na místa např.: <a href="#jidelna">.
   function handleBrowserNavigation() {
     const nextState = parseCurrentUrl();
 
