@@ -1,6 +1,6 @@
 
 [13.11. 2026]
-## Přidání hlavní struktury projektu, např.: index.html.
+## Přidání hlavní struktury projektu, např.: index.html + přidání faviconu.
 
 
 [11.11. 2026]
