@@ -1,34 +1,149 @@
 <!DOCTYPE html>
 <html lang="cs">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ZŠ Dubeč - Mapa, Panorama a Navigace Školy</title>
-    
-    <!-- Pannellum CSS z CDN -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css"/>
-    
-    <style>
-        body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-        }
-        #panorama {
-            width: 100vw;
-            height: 100vh;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interaktivní mapa školy | ZŠ Dubeč</title>
+
+  <!-- Pannellum 360° CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css">
+  <!-- Vlastní styly -->
+  <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
-    <!-- Kontejner pro 360° fotku -->
-    <div id="panorama"></div>
+  <!-- Horní lišta (bezpečný okraj pro scrollování stránkou nad prohlížečem) -->
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="#" class="brand">ZŠ Dubeč <span>| Interaktivní mapa</span></a>
+      <nav class="header-links">
+        <a href="#rychly-vyber">Místnosti</a>
+        <a href="#napoveda">Ovládání</a>
+      </nav>
+    </div>
+  </header>
 
-    <!-- JS knihovna Pannellum a váš skript -->
-    <script src="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js"></script>
-    <script src="js/app.js"></script>
+  <main>
+    <!-- Hlavní interaktivní okno (Mapa + Navigace vlevo, View vpravo) -->
+    <section class="tour-window" id="tourWindow" aria-label="Interaktivní prohlídka školy">
+
+      <!-- LEVÝ HORNÍ BLOK: 2D Mapa -->
+      <div class="panel panel-map" id="mapPanel">
+        <div class="panel-header">
+          <div class="floor-tabs" id="floorTabs" role="tablist" aria-label="Výběr patra"></div>
+          <button type="button" class="icon-btn" id="btnToggleMapExpand" title="Zvětšit / prohodit mapu" aria-label="Zvětšit mapu">
+            ⤢
+          </button>
+        </div>
+
+        <div class="map-viewport" id="mapViewport">
+          <div class="map-stage" id="mapStage">
+            <img id="floorPlanImg" src="" alt="Půdorys patra">
+            <svg class="map-route-svg" id="mapRouteSvg" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
+            <div class="map-pins" id="mapPins"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- LEVÝ DOLNÍ BLOK: Navigace -->
+      <div class="panel panel-nav" id="navPanel">
+        <div class="panel-header">
+          <span class="panel-title">Navigace po škole</span>
+          <button type="button" class="text-btn hidden" id="btnClearRoute">Zrušit trasu</button>
+        </div>
+
+        <form class="nav-form" id="navForm" autocomplete="off">
+          <div class="field-group">
+            <label for="inputStart">Odkud</label>
+            <div class="autocomplete-wrap">
+              <input type="text" id="inputStart" placeholder="Vyberte výchozí místo..." aria-label="Odkud">
+              <ul class="suggestions-list hidden" id="listStart"></ul>
+            </div>
+          </div>
+
+          <div class="nav-middle-row">
+            <button type="button" class="icon-btn" id="btnSwapRoute" title="Prohodit start a cíl" aria-label="Prohodit start a cíl">
+              ⇅
+            </button>
+          </div>
+
+          <div class="field-group">
+            <label for="inputTarget">Kam</label>
+            <div class="autocomplete-wrap">
+              <input type="text" id="inputTarget" placeholder="Hledat učebnu, jídelnu..." aria-label="Kam">
+              <ul class="suggestions-list hidden" id="listTarget"></ul>
+            </div>
+          </div>
+        </form>
+
+        <!-- Výsledek trasy z BFS + sdílení -->
+        <div class="route-result hidden" id="routeResult">
+          <div class="route-stats" id="routeStats"></div>
+          <div class="route-next" id="routeNextStep"></div>
+          <button type="button" class="primary-btn" id="btnShareRoute">Kopírovat odkaz na trasu</button>
+        </div>
+      </div>
+
+      <!-- PRAVÝ HLAVNÍ BLOK: 360° View -->
+      <div class="panel panel-view" id="viewPanel">
+        <div id="panorama"></div>
+
+        <div class="view-overlay-top">
+          <div class="room-badge">
+            <span class="room-floor" id="currentRoomFloor">Přízemí</span>
+            <strong class="room-title" id="currentRoomTitle">Načítání...</strong>
+          </div>
+
+          <div class="view-actions">
+            <span class="debug-badge hidden" id="debugBadge">DEBUG (Ctrl+Shift+D)</span>
+            <button type="button" class="icon-btn dark" id="btnFullscreen" title="Celá obrazovka" aria-label="Celá obrazovka">
+              ⛶
+            </button>
+          </div>
+        </div>
+
+        <div class="view-hint" id="viewHint">Tažením myší nebo prstem se rozhlédněte kolem</div>
+      </div>
+
+      <!-- Plovoucí tlačítka pro mobilní zobrazení (<= 768px) -->
+      <div class="mobile-controls">
+        <button type="button" class="mobile-fab" id="btnMobileMap">🗺️ Mapa</button>
+        <button type="button" class="mobile-fab" id="btnMobileNav">🧭 Navigace</button>
+      </div>
+
+    </section>
+
+    <!-- SEKCE POD PROHLÍŽEČEM ("Zbytek / Další zbytek") -->
+    <section class="page-content" id="rychly-vyber">
+      <div class="content-block">
+        <h2>Rychlý přesun po škole</h2>
+        <p>Kliknutím na vybrané místo se okamžitě přenesete do příslušného 360° pohledu:</p>
+        <div class="quick-links" id="quickLinks">
+          <a href="#pred_skolou" class="chip">Před školou</a>
+          <a href="#chodba_vstup" class="chip">Hlavní vchod</a>
+          <a href="#jidelna" class="chip">Školní jídelna</a>
+          <a href="#telocvicna" class="chip">Tělocvična</a>
+        </div>
+      </div>
+
+      <div class="content-block" id="napoveda">
+        <h2>Jak mapu ovládat</h2>
+        <ul class="help-list">
+          <li><strong>Rozhlížení (View):</strong> Táhněte myší nebo prstem po panoramatu. Kliknutím na šipky v prostoru přejdete do sousední místnosti.</li>
+          <li><strong>2D půdorys (Mapa):</strong> Přepínejte mezi patry školy a klikněte na libovolný bod pro okamžitý skok na dané místo.</li>
+          <li><strong>Vyhledání cesty (Navigace):</strong> Zadejte výchozí a cílovou místnost – nejkratší trasa se vykreslí do mapy a odkaz můžete poslat komukoli dalšímu.</li>
+        </ul>
+      </div>
+
+      <footer class="site-footer">
+        <p>Školní projekt ZŠ Dubeč • Autoři: Filip Vukadinović a Ondřej Tvrdík</p>
+      </footer>
+    </section>
+  </main>
+
+  <!-- Pannellum 360° JS -->
+  <script src="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js"></script>
+  <!-- Vstupní bod ES6 modulů -->
+  <script type="module" src="javascript/main.js"></script>
 </body>
 </html>
